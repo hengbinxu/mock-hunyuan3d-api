@@ -3,20 +3,15 @@ import uuid
 from http import HTTPStatus
 from typing import Annotated
 
-from enum import StrEnum
+from constants import SupportFileFormat, ImageProcessStatus
 from fastapi import FastAPI, Request, Path, Query
 from fastapi.responses import JSONResponse
-
-
-class SupportFileFormat(StrEnum):
-    GLB = "glb"
-    OBJ = "obj"
-    PLY = "ply"
-    STL = "stl"
+from response_simulator import ResponseSimulator, ResponseResult
 
 
 app = FastAPI()
 image_content = None
+response_simulator = ResponseSimulator()
 
 
 @app.post("/send")
@@ -26,6 +21,7 @@ async def send(request: Request) -> JSONResponse:
     global image_content
     image_content = params["image"]
     response = {"uid": uid}
+    response_simulator.save_record(uid, image_content)
     return JSONResponse(response, status_code=HTTPStatus.OK)
 
 
@@ -35,5 +31,13 @@ async def get_status(
     file_type: Annotated[SupportFileFormat, Query()] = SupportFileFormat.GLB,
 ) -> JSONResponse:
     print(f"Inner get_status code block, uid: {uid}, file_type: {file_type}")
-    response = {"status": "completed", "model_base64": image_content}
+    response_simulator.delete_record_by_expired_time()
+    res = response_simulator.get_record(uid)
+    match res.status:
+        case ImageProcessStatus.PROCESSING:
+            response = {"status": res.status, "model_base64": None}
+        case ImageProcessStatus.COMPLETED:
+            response = {"status": res.status, "model_base64": res.image_content}
+        case _:
+            raise ValueError(f"Unknown status: {res.status}")
     return JSONResponse(response, status_code=HTTPStatus.OK)
