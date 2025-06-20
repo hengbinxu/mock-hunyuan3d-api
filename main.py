@@ -4,9 +4,9 @@ from http import HTTPStatus
 from typing import Annotated
 
 from constants import SupportFileFormat, ImageProcessStatus
-from fastapi import FastAPI, Request, Path, Query
+from fastapi import FastAPI, Request, Path, Query, HTTPException
 from fastapi.responses import JSONResponse
-from response_simulator import ResponseSimulator, ResponseResult
+from response_simulator import ResponseSimulator
 
 
 app = FastAPI()
@@ -32,7 +32,13 @@ async def get_status(
 ) -> JSONResponse:
     print(f"Inner get_status code block, uid: {uid}, file_type: {file_type}")
     response_simulator.delete_record_by_expired_time()
-    res = response_simulator.get_record(uid)
+    try:
+        res = response_simulator.get_record(uid)
+    except KeyError:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail=f"Unknown uid: {uid}"
+        )
+
     match res.status:
         case ImageProcessStatus.PROCESSING:
             response = {"status": res.status, "model_base64": None}
