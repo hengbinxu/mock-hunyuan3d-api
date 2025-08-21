@@ -14,6 +14,11 @@ image_content = None
 response_simulator = ResponseSimulator()
 
 
+@app.get("/")
+async def health_check() -> dict[str, str]:
+    return {"msg": "ok"}
+
+
 @app.post("/send")
 async def send(request: Request) -> JSONResponse:
     uid = str(uuid.uuid4())
